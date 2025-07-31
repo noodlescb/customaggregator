@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Topics - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Topics</h2>
+    <p class="page-subtitle">Topics extracted from crawled articles</p>
+</div>
+
+{% if topics %}
+<div class="topics-grid">
+    {% for topic in topics %}
+    <div class="topic-card">
+        <div class="topic-header">
+            <h3 class="topic-name">
+                <a href="/?topic_id={{ topic.topic_id }}">{{ topic.name }}</a>
+            </h3>
+            <div class="topic-stats">
+                <span class="article-count">{{ topic.article_count }} article{% if topic.article_count != 1 %}s{% endif %}</span>
+            </div>
+        </div>
+        
+        <div class="topic-actions">
+            <a href="/?topic_id={{ topic.topic_id }}" class="btn btn-small btn-primary">View Articles</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No topics found. <a href="/registry">Crawl some articles</a> with topic extraction enabled!</p>
+</div>
+{% endif %}
+{% endblock %}

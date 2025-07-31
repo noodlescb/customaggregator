@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{% if filter_info %}{{ filter_info.get('topic', filter_info.get('company', '')) }} - {% endif %}CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>
+        {% if filter_info %}
+            {% if filter_info.topic %}
+                Articles about "{{ filter_info.topic }}"
+            {% elif filter_info.company %}
+                Articles mentioning "{{ filter_info.company }}"
+            {% endif %}
+        {% else %}
+            Latest Articles
+        {% endif %}
+    </h2>
+    
+    {% if filter_info %}
+    <a href="/" class="btn btn-secondary btn-small">Clear Filter</a>
+    {% endif %}
+</div>
+
+{% if articles %}
+<div class="articles-list">
+    {% for article in articles %}
+    <article class="article-item">
+        <div class="article-header">
+            <h3 class="article-title">
+                <a href="{{ article.url }}" target="_blank">{{ article.title or 'Untitled' }}</a>
+            </h3>
+            <div class="article-meta">
+                {% if article.author %}
+                    <span class="author">by {{ article.author }}</span>
+                {% endif %}
+                <div class="article-dates">
+                    {% if article.publication_date %}
+                        <span class="date publication-date">Published {{ article.publication_date.strftime('%Y-%m-%d') }}</span>
+                    {% endif %}
+                    <span class="date crawl-date">Crawled {{ article.crawl_date.strftime('%Y-%m-%d') }}</span>
+                </div>
+            </div>
+        </div>
+        
+        {% if article.description %}
+        <p class="article-description">{{ article.description }}</p>
+        {% endif %}
+        
+        {% if article.summary %}
+        <div class="article-summary">
+            <p>{{ article.summary[:300] }}{% if article.summary|length > 300 %}...{% endif %}</p>
+        </div>
+        {% endif %}
+        
+        <div class="article-tags">
+            {% if article.topics %}
+            <div class="topics">
+                <span class="tag-label">Topics:</span>
+                {% for topic in article.topics %}
+                    <a href="/?topic_id={{ topic.topic_id }}" class="tag topic-tag">{{ topic.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if article.companies %}
+            <div class="companies">
+                <span class="tag-label">Companies:</span>
+                {% for company in article.companies %}
+                    <a href="/companies/{{ company.company_id }}" class="tag company-tag">{{ company.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+{% if has_more %}
+<div class="pagination">
+    <a href="?page={{ page + 1 }}{% if topic_id %}&topic_id={{ topic_id }}{% endif %}{% if company_id %}&company_id={{ company_id }}{% endif %}" 
+       class="btn btn-secondary">Load More Articles</a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <p>No articles found. 
+    {% if filter_info %}
+        Try removing the filter or 
+    {% endif %}
+    <a href="/registry">add some URLs to crawl</a>!</p>
+</div>
+{% endif %}
+{% endblock %}

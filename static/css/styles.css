@@ -1,0 +1,765 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background-color: #1a1a1a;
+    color: #e6e6e6;
+    margin: 0;
+}
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header */
+.header {
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #404040;
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo a {
+    color: #ff6600;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.nav {
+    display: flex;
+    gap: 20px;
+}
+
+.nav-link {
+    color: #e6e6e6;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: #404040;
+}
+
+.config-link {
+    font-size: 16px;
+}
+
+/* Main content */
+.main {
+    padding: 20px 0;
+    min-height: calc(100vh - 60px);
+}
+
+/* Page header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #404040;
+}
+
+.page-header h2 {
+    color: #ff6600;
+    font-size: 24px;
+    font-weight: normal;
+}
+
+.page-subtitle {
+    color: #999;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    background-color: #404040;
+    color: #e6e6e6;
+}
+
+.btn:hover {
+    background-color: #505050;
+}
+
+.btn-primary {
+    background-color: #ff6600;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #e55a00;
+}
+
+.btn-secondary {
+    background-color: #666;
+}
+
+.btn-secondary:hover {
+    background-color: #777;
+}
+
+.btn-success {
+    background-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Forms */
+.form-card {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #ccc;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background-color: #1a1a1a;
+    color: #e6e6e6;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #ff6600;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.help-text {
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* Articles */
+.articles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.article-item {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.article-header {
+    margin-bottom: 10px;
+}
+
+.article-title {
+    font-size: 16px;
+    font-weight: normal;
+    margin-bottom: 5px;
+}
+
+.article-title a {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.article-title a:hover {
+    text-decoration: underline;
+}
+
+.article-meta {
+    font-size: 12px;
+    color: #999;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.article-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.publication-date {
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+.crawl-date {
+    color: #999;
+}
+
+.article-description {
+    color: #ccc;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.article-summary {
+    color: #bbb;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.article-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.topics,
+.companies {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.tag-label {
+    font-size: 12px;
+    color: #999;
+    margin-right: 5px;
+}
+
+.tag {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 11px;
+    text-decoration: none;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.topic-tag {
+    background-color: #2c5aa0;
+    color: white;
+}
+
+.topic-tag:hover {
+    background-color: #3d6bb0;
+}
+
+.company-tag {
+    background-color: #6f42c1;
+    color: white;
+}
+
+.company-tag:hover {
+    background-color: #7952cc;
+}
+
+.flag {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 11px;
+    background-color: #28a745;
+    color: white;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+/* Registry */
+.crawl-actions {
+    margin-bottom: 20px;
+}
+
+.registry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.registry-item {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.registry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.registry-url a {
+    color: #ff6600;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.registry-url a:hover {
+    text-decoration: underline;
+}
+
+.status {
+    padding: 2px 6px;
+    font-size: 11px;
+    border-radius: 3px;
+}
+
+.status.active {
+    background-color: #28a745;
+    color: white;
+}
+
+.status.inactive {
+    background-color: #6c757d;
+    color: white;
+}
+
+.registry-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.registry-flags {
+    display: flex;
+    gap: 5px;
+}
+
+.registry-date {
+    font-size: 12px;
+    color: #999;
+}
+
+.registry-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-form {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #404040;
+}
+
+/* Companies */
+.companies-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.search-section {
+    flex: 1;
+    max-width: 500px;
+}
+
+.search-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background-color: #1a1a1a;
+    color: #e6e6e6;
+    font-size: 14px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #ff6600;
+}
+
+.research-section {
+    flex-shrink: 0;
+}
+
+.research-form {
+    margin: 0;
+}
+
+.search-results {
+    margin-bottom: 15px;
+    color: #999;
+    font-size: 13px;
+}
+
+.companies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.company-card {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.company-name {
+    font-size: 16px;
+    font-weight: normal;
+    margin-bottom: 5px;
+}
+
+.company-name a {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.company-name a:hover {
+    text-decoration: underline;
+}
+
+.company-stats {
+    font-size: 12px;
+    color: #999;
+}
+
+.company-website {
+    margin-bottom: 10px;
+}
+
+.website-link {
+    color: #007acc;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.website-link:hover {
+    text-decoration: underline;
+}
+
+.company-summary {
+    color: #ccc;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.company-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+    font-size: 12px;
+    color: #999;
+}
+
+.company-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Company Profile */
+.company-profile {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.company-info {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.section-header {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #404040;
+}
+
+.section-header h3 {
+    color: #ff6600;
+    font-size: 18px;
+    font-weight: normal;
+}
+
+/* Topics */
+.topics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.topic-card {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.topic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.topic-name {
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.topic-name a {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.topic-name a:hover {
+    text-decoration: underline;
+}
+
+.topic-actions {
+    margin-top: 10px;
+}
+
+/* Config */
+.config-form {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.config-help {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 20px;
+}
+
+.config-help h3 {
+    color: #ff6600;
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.config-help ol {
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+.config-help li {
+    margin-bottom: 5px;
+    color: #ccc;
+}
+
+.test-form {
+    background-color: #1a1a1a;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+/* Alerts */
+.alert {
+    padding: 10px 15px;
+    border-radius: 3px;
+    margin-bottom: 20px;
+}
+
+.alert-success {
+    background-color: #155724;
+    border: 1px solid #28a745;
+    color: #d4edda;
+}
+
+/* Pagination */
+.pagination {
+    text-align: center;
+    margin-top: 30px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-state a {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.empty-state a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .nav {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .companies-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .topics-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    
+    .registry-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .registry-details {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .company-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .checkbox-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .company-actions {
+        flex-direction: column;
+    }
+    
+    .article-dates {
+        flex-direction: column;
+        gap: 3px;
+    }
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Focus styles for accessibility */
+.btn:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid #ff6600;
+    outline-offset: 2px;
+}

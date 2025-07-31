@@ -1,0 +1,22 @@
+[project]
+name = "crawleb"
+version = "0.1.0"
+description = "Web crawler for consolidating articles with AI-powered topic and company extraction"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "duckdb>=0.9.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.3",
+    "pydantic>=2.5.0",
+    "jinja2>=3.1.2",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.2.1",
+    "httpx>=0.25.0",
+    "python-dateutil>=2.8.2",
+    "newspaper3k>=0.2.8",
+    "trafilatura>=1.6.0",
+]

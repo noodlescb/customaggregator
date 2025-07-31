@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.name }} - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ company.name }}</h2>
+    <a href="/companies" class="btn btn-secondary btn-small">← Back to Companies</a>
+</div>
+
+<div class="company-profile">
+    <div class="company-info">
+        {% if company.website_url %}
+        <div class="company-website">
+            <strong>Website:</strong> <a href="{{ company.website_url }}" target="_blank">{{ company.website_url }}</a>
+        </div>
+        {% endif %}
+        
+        {% if company.summary %}
+        <div class="company-summary">
+            <h3>About</h3>
+            <p>{{ company.summary }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="company-details">
+            {% if company.founded_year %}
+                <div class="detail">
+                    <strong>Founded:</strong> {{ company.founded_year }}
+                </div>
+            {% endif %}
+            {% if company.employee_count and company.employee_count != 'Unknown' %}
+                <div class="detail">
+                    <strong>Employees:</strong> {{ company.employee_count }}
+                </div>
+            {% endif %}
+            <div class="detail">
+                <strong>Articles:</strong> {{ company.article_count }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if articles %}
+<div class="section-header">
+    <h3>Articles Mentioning {{ company.name }}</h3>
+</div>
+
+<div class="articles-list">
+    {% for article in articles %}
+    <article class="article-item">
+        <div class="article-header">
+            <h4 class="article-title">
+                <a href="{{ article.url }}" target="_blank">{{ article.title or 'Untitled' }}</a>
+            </h4>
+            <div class="article-meta">
+                {% if article.author %}
+                    <span class="author">by {{ article.author }}</span>
+                {% endif %}
+                <div class="article-dates">
+                    {% if article.publication_date %}
+                        <span class="date publication-date">Published {{ article.publication_date.strftime('%Y-%m-%d') }}</span>
+                    {% endif %}
+                    <span class="date crawl-date">Crawled {{ article.crawl_date.strftime('%Y-%m-%d') }}</span>
+                </div>
+            </div>
+        </div>
+        
+        {% if article.description %}
+        <p class="article-description">{{ article.description }}</p>
+        {% endif %}
+        
+        {% if article.summary %}
+        <div class="article-summary">
+            <p>{{ article.summary[:250] }}{% if article.summary|length > 250 %}...{% endif %}</p>
+        </div>
+        {% endif %}
+        
+        <div class="article-tags">
+            {% if article.topics %}
+            <div class="topics">
+                <span class="tag-label">Topics:</span>
+                {% for topic in article.topics %}
+                    <a href="/?topic_id={{ topic.topic_id }}" class="tag topic-tag">{{ topic.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if article.companies %}
+            <div class="companies">
+                <span class="tag-label">Other Companies:</span>
+                {% for other_company in article.companies %}
+                    {% if other_company.company_id != company.company_id %}
+                        <a href="/companies/{{ other_company.company_id }}" class="tag company-tag">{{ other_company.name }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+{% if has_more %}
+<div class="pagination">
+    <a href="/companies/{{ company.company_id }}?page={{ page + 1 }}" class="btn btn-secondary">Load More Articles</a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <p>No articles found for {{ company.name }}.</p>
+</div>
+{% endif %}
+{% endblock %}

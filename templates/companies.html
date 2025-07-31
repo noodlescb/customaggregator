@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Companies - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Companies</h2>
+    <p class="page-subtitle">Companies mentioned in crawled articles</p>
+</div>
+
+<div class="companies-controls">
+    <div class="search-section">
+        <form method="get" class="search-form">
+            <input type="text" 
+                   name="search" 
+                   placeholder="Search companies by name or description..." 
+                   value="{{ search }}"
+                   class="search-input">
+            <button type="submit" class="btn btn-secondary btn-small">Search</button>
+            {% if search %}
+                <a href="/companies" class="btn btn-secondary btn-small">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+    
+    <div class="research-section">
+        <form method="post" action="/companies/research" class="research-form">
+            <button type="submit" class="btn btn-primary">Research Missing Info</button>
+        </form>
+    </div>
+</div>
+
+{% if search %}
+<div class="search-results">
+    <p>Found {{ companies|length }} companies matching "{{ search }}"</p>
+</div>
+{% endif %}
+
+{% if companies %}
+<div class="companies-grid">
+    {% for company in companies %}
+    <div class="company-card">
+        <div class="company-header">
+            <h3 class="company-name">
+                <a href="/companies/{{ company.company_id }}">{{ company.name }}</a>
+            </h3>
+            <div class="company-stats">
+                <span class="article-count">{{ company.article_count }} article{% if company.article_count != 1 %}s{% endif %}</span>
+            </div>
+        </div>
+        
+        {% if company.website_url %}
+        <div class="company-website">
+            <a href="{{ company.website_url }}" target="_blank" class="website-link">{{ company.website_url }}</a>
+        </div>
+        {% endif %}
+        
+        {% if company.summary %}
+        <div class="company-summary">
+            <p>{{ company.summary[:200] }}{% if company.summary|length > 200 %}...{% endif %}</p>
+        </div>
+        {% endif %}
+        
+        <div class="company-details">
+            {% if company.founded_year %}
+                <span class="detail">Founded: {{ company.founded_year }}</span>
+            {% endif %}
+            {% if company.employee_count and company.employee_count != 'Unknown' %}
+                <span class="detail">Employees: {{ company.employee_count }}</span>
+            {% endif %}
+        </div>
+        
+        <div class="company-actions">
+            <a href="/companies/{{ company.company_id }}" class="btn btn-small btn-primary">View Articles</a>
+            <a href="/?company_id={{ company.company_id }}" class="btn btn-small btn-secondary">Filter Articles</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No companies found. <a href="/registry">Crawl some articles</a> with company extraction enabled!</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Handle research form submission
+document.querySelector('.research-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const button = this.querySelector('button');
+    const originalText = button.textContent;
+    
+    button.textContent = 'Researching...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/companies/research', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert('Company research started! This will run in the background. Refresh the page in a few minutes to see updated company information.');
+        } else {
+            const error = await response.json();
+            alert(`Research failed: ${error.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Research failed: ${error.message}`);
+    } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
+});
+
+// Auto-submit search form on Enter key
+document.querySelector('.search-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        this.closest('form').submit();
+    }
+});
+</script>
+{% endblock %}

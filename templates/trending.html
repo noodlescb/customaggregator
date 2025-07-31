@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+
+{% block title %}Trending - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Trending Topics</h2>
+    <div class="trending-actions">
+        <button class="btn btn-primary" onclick="generateTrendingReport()">Generate Trending Report</button>
+    </div>
+</div>
+
+<div class="trending-controls">
+    <div class="time-period-toggles">
+        <label>Time Period:</label>
+        <div class="toggle-group">
+            <input type="radio" id="days-7" name="days" value="7" {% if days == 7 %}checked{% endif %} onchange="updateTimePeriod()">
+            <label for="days-7" class="toggle-label">7 Days</label>
+            
+            <input type="radio" id="days-30" name="days" value="30" {% if days == 30 %}checked{% endif %} onchange="updateTimePeriod()">
+            <label for="days-30" class="toggle-label">30 Days</label>
+            
+            <input type="radio" id="days-90" name="days" value="90" {% if days == 90 %}checked{% endif %} onchange="updateTimePeriod()">
+            <label for="days-90" class="toggle-label">90 Days</label>
+        </div>
+    </div>
+</div>
+
+<div id="trending-results" style="display: none;">
+    <!-- Results will be populated here by JavaScript -->
+</div>
+
+<div id="trending-placeholder" class="empty-state">
+    <p>Click "Generate Trending Report" to analyze trending topics for the selected time period.</p>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTrendingData = null;
+
+function updateTimePeriod() {
+    const selectedDays = document.querySelector('input[name="days"]:checked').value;
+    // Update URL without reloading page
+    const url = new URL(window.location);
+    url.searchParams.set('days', selectedDays);
+    window.history.pushState({}, '', url);
+}
+
+async function generateTrendingReport() {
+    const selectedDays = document.querySelector('input[name="days"]:checked').value;
+    const button = document.querySelector('.btn-primary');
+    const placeholder = document.getElementById('trending-placeholder');
+    const results = document.getElementById('trending-results');
+    
+    // Show loading state
+    button.textContent = 'Analyzing...';
+    button.disabled = true;
+    placeholder.innerHTML = '<p>Analyzing trending topics... This may take a minute.</p>';
+    
+    try {
+        const formData = new FormData();
+        formData.append('days', selectedDays);
+        
+        const response = await fetch('/trending/analyze', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            currentTrendingData = result.data;
+            displayTrendingResults(result.data);
+            placeholder.style.display = 'none';
+            results.style.display = 'block';
+        } else {
+            const error = await response.json();
+            placeholder.innerHTML = `<p style="color: #dc3545;">Analysis failed: ${error.detail || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        placeholder.innerHTML = `<p style="color: #dc3545;">Analysis failed: ${error.message}</p>`;
+    } finally {
+        button.textContent = 'Generate Trending Report';
+        button.disabled = false;
+    }
+}
+
+function displayTrendingResults(data) {
+    const resultsContainer = document.getElementById('trending-results');
+    
+    let html = `
+        <div class="trending-summary">
+            <h3>Analysis Summary</h3>
+            <p>Analyzed <strong>${data.article_count}</strong> articles from the last <strong>${data.days}</strong> days.</p>
+        </div>
+        
+        <div class="trending-sections">
+    `;
+    
+    // Top Topics by Article Count
+    if (data.top_topics && data.top_topics.length > 0) {
+        html += `
+            <div class="trending-section">
+                <div class="section-header">
+                    <h3>Top Topics by Article Count</h3>
+                </div>
+                <div class="trending-grid">
+        `;
+        
+        data.top_topics.forEach(topic => {
+            html += `
+                <div class="trending-card">
+                    <div class="trending-card-header">
+                        <h4><a href="/?topic_id=${topic.topic_id}" class="topic-tag">${topic.name}</a></h4>
+                        <span class="trending-count">${topic.article_count} articles</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Top Companies by Article Count
+    if (data.top_companies && data.top_companies.length > 0) {
+        html += `
+            <div class="trending-section">
+                <div class="section-header">
+                    <h3>Top Companies by Article Count</h3>
+                </div>
+                <div class="trending-grid">
+        `;
+        
+        data.top_companies.forEach(company => {
+            html += `
+                <div class="trending-card">
+                    <div class="trending-card-header">
+                        <h4><a href="/companies/${company.company_id}" class="company-tag">${company.name}</a></h4>
+                        <span class="trending-count">${company.article_count} articles</span>
+                    </div>
+                    ${company.website_url ? `<div class="company-website"><a href="${company.website_url}" target="_blank">${company.website_url}</a></div>` : ''}
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // AI-Identified Trending Topics
+    if (data.ai_trending_topics && data.ai_trending_topics.length > 0) {
+        html += `
+            <div class="trending-section">
+                <div class="section-header">
+                    <h3>AI-Identified Trending Topics</h3>
+                    <p class="section-subtitle">Topics identified through content analysis</p>
+                </div>
+                <div class="ai-trending-list">
+        `;
+        
+        data.ai_trending_topics.forEach((topic, index) => {
+            html += `
+                <div class="ai-trending-item">
+                    <div class="ai-trending-header">
+                        <h4>${topic.name}</h4>
+                        <div class="ai-trending-meta">
+                            <span class="related-count">${topic.related_article_count} related articles</span>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-trending-content">
+                        <div class="explanation">
+                            <strong>Why it's trending:</strong>
+                            <p>${topic.explanation}</p>
+                        </div>
+                        
+                        <div class="insights">
+                            <strong>Key insights:</strong>
+                            <p>${topic.insights}</p>
+                        </div>
+                        
+                        ${topic.related_articles && topic.related_articles.length > 0 ? `
+                            <div class="related-articles">
+                                <strong>Related articles:</strong>
+                                <ul>
+                                    ${topic.related_articles.map(article => `
+                                        <li>
+                                            <a href="${article.url}" target="_blank">${article.title}</a>
+                                            ${article.publication_date ? `<span class="article-date">${new Date(article.publication_date).toLocaleDateString()}</span>` : ''}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                                <button class="btn btn-small btn-secondary" onclick="viewAllRelatedArticles('${topic.name}')">View All Articles</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    
+    if (data.top_topics.length === 0 && data.top_companies.length === 0 && data.ai_trending_topics.length === 0) {
+        html = `
+            <div class="empty-state">
+                <p>No trending topics found for the last ${data.days} days. Try adjusting the time period or add more articles to analyze.</p>
+            </div>
+        `;
+    }
+    
+    resultsContainer.innerHTML = html;
+}
+
+function viewAllRelatedArticles(topicName) {
+    // This could be enhanced to search for articles related to the AI-identified topic
+    // For now, we'll just show a message
+    alert(`Feature coming soon: View all articles related to "${topicName}"`);
+}
+
+// Auto-load results if we have trending data
+document.addEventListener('DOMContentLoaded', function() {
+    {% if trending_data %}
+        currentTrendingData = {{ trending_data|tojson }};
+        displayTrendingResults(currentTrendingData);
+        document.getElementById('trending-placeholder').style.display = 'none';
+        document.getElementById('trending-results').style.display = 'block';
+    {% endif %}
+});
+</script>
+
+<style>
+.trending-controls {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+}
+
+.time-period-toggles {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.time-period-toggles label {
+    color: #ccc;
+    font-weight: 500;
+}
+
+.toggle-group {
+    display: flex;
+    gap: 10px;
+}
+
+.toggle-group input[type="radio"] {
+    display: none;
+}
+
+.toggle-label {
+    padding: 6px 12px;
+    background-color: #404040;
+    color: #e6e6e6;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.toggle-group input[type="radio"]:checked + .toggle-label {
+    background-color: #ff6600;
+    color: white;
+}
+
+.toggle-label:hover {
+    background-color: #505050;
+}
+
+.toggle-group input[type="radio"]:checked + .toggle-label:hover {
+    background-color: #e55a00;
+}
+
+.trending-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.trending-summary {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 25px;
+}
+
+.trending-summary h3 {
+    color: #ff6600;
+    margin-bottom: 10px;
+    font-size: 18px;
+    font-weight: normal;
+}
+
+.trending-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.trending-section {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 5px;
+    padding: 20px;
+}
+
+.trending-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.trending-card {
+    background-color: #1a1a1a;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 12px;
+}
+
+.trending-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.trending-card h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.trending-count {
+    font-size: 12px;
+    color: #999;
+    white-space: nowrap;
+}
+
+.company-website {
+    margin-top: 8px;
+}
+
+.company-website a {
+    color: #007acc;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.company-website a:hover {
+    text-decoration: underline;
+}
+
+.ai-trending-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 15px;
+}
+
+.ai-trending-item {
+    background-color: #1a1a1a;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 15px;
+}
+
+.ai-trending-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #404040;
+}
+
+.ai-trending-header h4 {
+    color: #ff6600;
+    margin: 0;
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.ai-trending-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: #999;
+}
+
+.ai-trending-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.explanation, .insights {
+    color: #ccc;
+}
+
+.explanation strong, .insights strong {
+    color: #e6e6e6;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.related-articles {
+    color: #ccc;
+}
+
+.related-articles strong {
+    color: #e6e6e6;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.related-articles ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px 0;
+}
+
+.related-articles li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #333;
+}
+
+.related-articles li:last-child {
+    border-bottom: none;
+}
+
+.related-articles a {
+    color: #ff6600;
+    text-decoration: none;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.related-articles a:hover {
+    text-decoration: underline;
+}
+
+.article-date {
+    font-size: 11px;
+    color: #999;
+    white-space: nowrap;
+}
+
+.section-subtitle {
+    color: #999;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+@media (max-width: 768px) {
+    .trending-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .time-period-toggles {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .trending-card-header {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .ai-trending-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .related-articles li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+</style>
+{% endblock %}

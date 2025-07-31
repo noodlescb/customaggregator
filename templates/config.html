@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Configuration</h2>
+    <p class="page-subtitle">Databricks LLM settings</p>
+</div>
+
+{% if request.query_params.get('success') %}
+<div class="alert alert-success">
+    Configuration saved and tested successfully!
+</div>
+{% endif %}
+
+<div class="config-form">
+    <form method="post" action="/config/save">
+        <div class="form-group">
+            <label for="databricks_workspace_url">Databricks Workspace URL:</label>
+            <input type="url" 
+                   id="databricks_workspace_url" 
+                   name="databricks_workspace_url" 
+                   value="{{ config.databricks_workspace_url if config else '' }}" 
+                   placeholder="https://your-workspace.databricks.com"
+                   required>
+            <small class="help-text">Your Databricks workspace URL (without trailing slash)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="databricks_api_key">Databricks API Key:</label>
+            <input type="password" 
+                   id="databricks_api_key" 
+                   name="databricks_api_key" 
+                   value="{{ config.databricks_api_key if config else '' }}" 
+                   placeholder="dapi-..."
+                   required>
+            <small class="help-text">Your Databricks personal access token or service principal key</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="llm_endpoint_name">LLM Endpoint Name:</label>
+            <input type="text" 
+                   id="llm_endpoint_name" 
+                   name="llm_endpoint_name" 
+                   value="{{ config.llm_endpoint_name if config else '' }}" 
+                   placeholder="my-llm-endpoint"
+                   required>
+            <small class="help-text">The name of your Databricks serving endpoint</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="max_articles_per_page">Articles per Page:</label>
+            <input type="number" 
+                   id="max_articles_per_page" 
+                   name="max_articles_per_page" 
+                   value="{{ config.max_articles_per_page if config else 10 }}" 
+                   min="5" 
+                   max="100"
+                   required>
+            <small class="help-text">Number of articles to display per page (5-100)</small>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+        </div>
+    </form>
+</div>
+
+<div class="config-help">
+    <h3>Setup Instructions</h3>
+    <ol>
+        <li><strong>Databricks Workspace URL:</strong> Find this in your Databricks workspace URL bar (e.g., https://your-workspace.cloud.databricks.com)</li>
+        <li><strong>API Key:</strong> Generate a personal access token in your Databricks user settings</li>
+        <li><strong>Endpoint Name:</strong> Create a serving endpoint in Databricks with your preferred LLM (e.g., Llama, Mixtral)</li>
+    </ol>
+    
+    <h3>Quick Test</h3>
+    <form method="post" action="/crawl/single" class="test-form">
+        <div class="form-group">
+            <label for="test_url">Test URL:</label>
+            <input type="url" 
+                   id="test_url" 
+                   name="url" 
+                   placeholder="https://example.com/article"
+                   required>
+        </div>
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="extract_topics" checked>
+                Extract Topics
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="extract_companies" checked>
+                Extract Companies
+            </label>
+        </div>
+        <button type="submit" class="btn btn-secondary">Test Single URL</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Handle single URL test form
+document.querySelector('.test-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const button = this.querySelector('button');
+    const originalText = button.textContent;
+    
+    button.textContent = 'Testing...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/crawl/single', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`Success! Article processed.\nTopics: ${result.topics.join(', ')}\nCompanies: ${result.companies.join(', ')}`);
+        } else {
+            alert(`Test failed: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Test failed: ${error.message}`);
+    } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
+});
+</script>
+{% endblock %}

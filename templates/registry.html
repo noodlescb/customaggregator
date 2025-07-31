@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Crawl Registry - CrawlEB{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Crawl Registry</h2>
+    <button class="btn btn-primary" onclick="toggleAddForm()">Add URL</button>
+</div>
+
+<div id="add-form" class="form-card" style="display: none;">
+    <h3>Add New URL</h3>
+    <form method="post" action="/registry/add">
+        <div class="form-group">
+            <label for="url">URL:</label>
+            <input type="url" id="url" name="url" required>
+        </div>
+        
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="extract_topics" checked>
+                Extract Topics
+            </label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="extract_companies" checked>
+                Extract Companies
+            </label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="active" checked>
+                Active
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add URL</button>
+            <button type="button" class="btn btn-secondary" onclick="toggleAddForm()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<div class="crawl-actions">
+    <form method="post" action="/crawl/run" style="display: inline;" class="crawl-form">
+        <button type="submit" class="btn btn-success">Run Crawl</button>
+    </form>
+</div>
+
+{% if entries %}
+<div class="registry-list">
+    {% for entry in entries %}
+    <div class="registry-item">
+        <div class="registry-header">
+            <div class="registry-url">
+                <a href="{{ entry.url }}" target="_blank">{{ entry.url }}</a>
+            </div>
+            <div class="registry-status">
+                {% if entry.active %}
+                    <span class="status active">Active</span>
+                {% else %}
+                    <span class="status inactive">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="registry-details">
+            <div class="registry-flags">
+                {% if entry.extract_topics %}
+                    <span class="flag">Topics</span>
+                {% endif %}
+                {% if entry.extract_companies %}
+                    <span class="flag">Companies</span>
+                {% endif %}
+            </div>
+            <div class="registry-date">
+                Added: {{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else 'Unknown' }}
+            </div>
+        </div>
+        
+        <div class="registry-actions">
+            <button class="btn btn-small btn-secondary" onclick="toggleEditForm({{ entry.id }})">Edit</button>
+            <form method="post" action="/registry/delete/{{ entry.id }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this entry?')">
+                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+            </form>
+        </div>
+        
+        <div id="edit-form-{{ entry.id }}" class="edit-form" style="display: none;">
+            <form method="post" action="/registry/update/{{ entry.id }}">
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="extract_topics" {% if entry.extract_topics %}checked{% endif %}>
+                        Extract Topics
+                    </label>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="extract_companies" {% if entry.extract_companies %}checked{% endif %}>
+                        Extract Companies
+                    </label>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="active" {% if entry.active %}checked{% endif %}>
+                        Active
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-small btn-primary">Save</button>
+                    <button type="button" class="btn btn-small btn-secondary" onclick="toggleEditForm({{ entry.id }})">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No URLs in the registry. Add some URLs to start crawling!</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAddForm() {
+    const form = document.getElementById('add-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleEditForm(id) {
+    const form = document.getElementById('edit-form-' + id);
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+// Handle crawl form submission
+document.querySelector('.crawl-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const button = this.querySelector('button');
+    const originalText = button.textContent;
+    
+    button.textContent = 'Starting Crawl...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/crawl/run', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert('Crawl started! The crawler is now processing all active URLs in the background. Check the Articles page in a few minutes to see new content.');
+        } else {
+            const error = await response.json();
+            alert(`Crawl failed: ${error.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Crawl failed: ${error.message}`);
+    } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
+});
+</script>
+{% endblock %}
