@@ -58,3 +58,11 @@ class Config(BaseModel):
     databricks_api_key: str
     llm_endpoint_name: str
     max_articles_per_page: int = 10
+
+
+class TrendingReport(BaseModel):
+    report_id: Optional[int] = None
+    days: int = 7
+    generated_at: Optional[datetime] = None
+    article_count: Optional[int] = None
+    results: Optional[dict] = None

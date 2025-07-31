@@ -240,10 +240,13 @@ async def trending_page(request: Request, days: int = 7):
     if days not in [7, 30, 90]:
         days = 7
     
+    # Load cached trending report if available
+    cached_report = db.get_latest_trending_report(days)
+    
     return templates.TemplateResponse("trending.html", {
         "request": request,
         "days": days,
-        "trending_data": None  # Will be populated when analysis is run
+        "trending_data": cached_report
     })
 
 

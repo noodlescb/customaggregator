@@ -45,13 +45,23 @@ class TrendingAnalyzer:
         # Analyze content for AI-powered trending topics
         ai_trending_topics = await self._identify_ai_trending_topics(articles)
         
-        return {
+        results = {
             'top_topics': top_topics,
             'top_companies': top_companies, 
             'ai_trending_topics': ai_trending_topics,
             'article_count': len(articles),
             'days': days
         }
+        
+        # Save results to database
+        try:
+            report_id = self.db.save_trending_report(days, len(articles), results)
+            results['report_id'] = report_id
+            logger.info(f"Saved trending analysis to database with report ID {report_id}")
+        except Exception as e:
+            logger.error(f"Failed to save trending analysis to database: {e}")
+        
+        return results
     
     async def _identify_ai_trending_topics(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

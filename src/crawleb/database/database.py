@@ -117,6 +117,20 @@ class Database:
                     value VARCHAR NOT NULL
                 )
             """)
+            
+            # Create trending_reports table
+            conn.execute("""
+                CREATE SEQUENCE IF NOT EXISTS trending_reports_id_seq;
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS trending_reports (
+                    report_id INTEGER PRIMARY KEY DEFAULT nextval('trending_reports_id_seq'),
+                    days INTEGER NOT NULL,
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    article_count INTEGER,
+                    results_json TEXT NOT NULL
+                )
+            """)
     
     # Crawl Registry methods
     def add_crawl_url(self, registry: CrawlRegistry) -> int:
@@ -594,4 +608,97 @@ class Database:
                 
             except Exception as e:
                 logger.error(f"Error getting trending companies: {e}")
+                return []
+    
+    # Trending reports methods
+    def save_trending_report(self, days: int, article_count: int, results: Dict[str, Any]) -> int:
+        """Save trending report results to database."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                import json
+                from datetime import datetime
+                
+                # Convert any datetime objects to strings for JSON serialization
+                def serialize_datetime(obj):
+                    if isinstance(obj, datetime):
+                        return obj.isoformat()
+                    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+                
+                results_json = json.dumps(results, default=serialize_datetime)
+                
+                # First, delete any existing report for the same time period (keep only latest)
+                conn.execute("DELETE FROM trending_reports WHERE days = ?", [days])
+                
+                # Insert new report
+                result = conn.execute("""
+                    INSERT INTO trending_reports (days, article_count, results_json)
+                    VALUES (?, ?, ?)
+                    RETURNING report_id
+                """, [days, article_count, results_json])
+                
+                report_id = result.fetchone()[0]
+                logger.info(f"Saved trending report for {days} days with ID {report_id}")
+                return report_id
+                
+            except Exception as e:
+                logger.error(f"Error saving trending report: {e}")
+                return 0
+    
+    def get_latest_trending_report(self, days: int) -> Optional[Dict[str, Any]]:
+        """Get the latest trending report for the specified time period."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                result = conn.execute("""
+                    SELECT report_id, days, generated_at, article_count, results_json
+                    FROM trending_reports 
+                    WHERE days = ?
+                    ORDER BY generated_at DESC
+                    LIMIT 1
+                """, [days]).fetchone()
+                
+                if result:
+                    import json
+                    return {
+                        'report_id': result[0],
+                        'days': result[1],
+                        'generated_at': result[2],
+                        'article_count': result[3],
+                        'results': json.loads(result[4])
+                    }
+                
+                return None
+                
+            except Exception as e:
+                logger.error(f"Error getting trending report: {e}")
+                return None
+    
+    def get_all_trending_reports(self) -> List[Dict[str, Any]]:
+        """Get all trending reports (latest for each time period)."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                results = conn.execute("""
+                    SELECT report_id, days, generated_at, article_count, results_json
+                    FROM trending_reports 
+                    ORDER BY days ASC, generated_at DESC
+                """).fetchall()
+                
+                # Group by days and keep only the latest for each
+                reports_by_days = {}
+                import json
+                
+                for row in results:
+                    days = row[1]
+                    if days not in reports_by_days:
+                        reports_by_days[days] = {
+                            'report_id': row[0],
+                            'days': row[1],
+                            'generated_at': row[2],
+                            'article_count': row[3],
+                            'results': json.loads(row[4])
+                        }
+                
+                return list(reports_by_days.values())
+                
+            except Exception as e:
+                logger.error(f"Error getting all trending reports: {e}")
                 return []

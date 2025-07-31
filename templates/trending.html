@@ -30,9 +30,15 @@
     <!-- Results will be populated here by JavaScript -->
 </div>
 
+{% if trending_data %}
+<div id="trending-placeholder" class="empty-state" style="display: none;">
+    <p>Click "Generate Trending Report" to analyze trending topics for the selected time period.</p>
+</div>
+{% else %}
 <div id="trending-placeholder" class="empty-state">
     <p>Click "Generate Trending Report" to analyze trending topics for the selected time period.</p>
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -232,10 +238,22 @@ function viewAllRelatedArticles(topicName) {
 // Auto-load results if we have trending data
 document.addEventListener('DOMContentLoaded', function() {
     {% if trending_data %}
-        currentTrendingData = {{ trending_data|tojson }};
+        // We have cached data, display it
+        currentTrendingData = {{ trending_data.results|tojson }};
         displayTrendingResults(currentTrendingData);
         document.getElementById('trending-placeholder').style.display = 'none';
         document.getElementById('trending-results').style.display = 'block';
+        
+        // Add timestamp info
+        const generatedAt = new Date('{{ trending_data.generated_at }}');
+        const timeInfo = document.createElement('div');
+        timeInfo.className = 'cached-report-info';
+        timeInfo.innerHTML = `
+            <p><strong>Last generated:</strong> ${generatedAt.toLocaleString()} 
+               <button class="btn btn-small btn-secondary" onclick="generateTrendingReport()">Refresh Report</button>
+            </p>
+        `;
+        document.getElementById('trending-results').insertBefore(timeInfo, document.getElementById('trending-results').firstChild);
     {% endif %}
 });
 </script>
@@ -474,6 +492,22 @@ document.addEventListener('DOMContentLoaded', function() {
     color: #999;
     font-size: 13px;
     margin-top: 5px;
+}
+
+.cached-report-info {
+    background-color: #2d4a2d;
+    border: 1px solid #4a6b4a;
+    border-radius: 3px;
+    padding: 10px;
+    margin-bottom: 20px;
+    font-size: 12px;
+}
+
+.cached-report-info p {
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 @media (max-width: 768px) {
