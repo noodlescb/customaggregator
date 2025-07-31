@@ -28,6 +28,7 @@ class CompanyResearcher:
             'researched_companies': 0,
             'updated_companies': 0,
             'failed_companies': 0,
+            'skipped_companies': 0,
             'errors': []
         }
         
@@ -35,13 +36,18 @@ class CompanyResearcher:
             # Get companies with missing information
             companies = self.db.get_companies()
             companies_to_research = []
+            companies_with_websites = 0
             
             for company in companies:
                 if self._needs_research(company):
                     companies_to_research.append(company)
+                else:
+                    companies_with_websites += 1
             
             results['total_companies'] = len(companies_to_research)
+            results['skipped_companies'] = companies_with_websites
             logger.info(f"Found {len(companies_to_research)} companies needing research")
+            logger.info(f"Skipped {companies_with_websites} companies that already have website URLs")
             
             for company in companies_to_research:
                 try:
@@ -82,19 +88,17 @@ class CompanyResearcher:
 
     def _needs_research(self, company: Dict[str, Any]) -> bool:
         """Determine if a company needs additional research."""
+        # Skip companies that already have a website URL - they're considered sufficiently populated
+        if company.get('website_url'):
+            return False
+        
         # Check if summary is missing or looks like an error message
         summary = company.get('summary', '')
         if not summary or 'could not be retrieved' in summary.lower():
             return True
         
-        # Check if other important fields are missing
-        if not company.get('website_url'):
-            return True
-        
-        if not company.get('founded_year'):
-            return True
-            
-        return False
+        # Company needs research if it has no website URL (primary indicator)
+        return True
 
     async def _research_with_llm(self, company_name: str) -> Dict[str, Any]:
         """Use LLM to research company information."""
