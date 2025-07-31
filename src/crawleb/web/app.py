@@ -15,6 +15,7 @@ from ..llm.databricks_client import DatabricksLLMClient
 from ..crawler.crawler import WebCrawler
 from ..crawler.company_researcher import CompanyResearcher
 from ..crawler.trending_analyzer import TrendingAnalyzer
+from .job_status import job_tracker, JobStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -307,17 +308,24 @@ async def save_config(
 async def run_crawl_background():
     """Background task to run the crawler."""
     global crawler
-    _, crawler = get_llm_client_and_crawler()
-    
-    if not crawler:
-        logger.error("Crawler not initialized - check configuration")
-        return
+    job_tracker.start_job("crawl", "Initializing crawler...")
     
     try:
+        _, crawler = get_llm_client_and_crawler()
+        
+        if not crawler:
+            job_tracker.fail_job("crawl", "Crawler not initialized - check configuration")
+            return
+        
+        job_tracker.update_job_step("crawl", "Crawling registry URLs...")
         await crawler.run_crawl()
+        
+        job_tracker.complete_job("crawl", {"message": "Crawl completed successfully"})
         logger.info("Background crawl completed")
     except Exception as e:
-        logger.error(f"Background crawl failed: {e}")
+        error_msg = f"Background crawl failed: {e}"
+        job_tracker.fail_job("crawl", error_msg)
+        logger.error(error_msg)
 
 
 @app.post("/crawl/run")
@@ -355,18 +363,25 @@ async def crawl_single_url(
 
 async def run_company_research_background():
     """Background task to research companies with missing information."""
-    llm_client, _ = get_llm_client_and_crawler()
-    
-    if not llm_client:
-        logger.error("Company research not configured - check configuration")
-        return
+    job_tracker.start_job("research", "Initializing company research...")
     
     try:
+        llm_client, _ = get_llm_client_and_crawler()
+        
+        if not llm_client:
+            job_tracker.fail_job("research", "Company research not configured - check configuration")
+            return
+        
+        job_tracker.update_job_step("research", "Researching companies with missing info...")
         researcher = CompanyResearcher(llm_client, db)
         results = await researcher.research_companies_with_missing_info()
+        
+        job_tracker.complete_job("research", results)
         logger.info(f"Company research completed: {results}")
     except Exception as e:
-        logger.error(f"Company research failed: {e}")
+        error_msg = f"Company research failed: {e}"
+        job_tracker.fail_job("research", error_msg)
+        logger.error(error_msg)
 
 
 @app.post("/companies/research")
@@ -383,21 +398,32 @@ async def research_companies(background_tasks: BackgroundTasks):
     return {"message": "Company research started in background"}
 
 
-async def run_trending_analysis_background(days: int):
+async def run_trending_analysis_background(days: int = 7):
     """Background task to analyze trending topics."""
-    llm_client, _ = get_llm_client_and_crawler()
-    
-    if not llm_client:
-        logger.error("Trending analysis not configured - check configuration")
-        return None
+    job_tracker.start_job("trending", f"Initializing trending analysis for {days} days...")
     
     try:
+        llm_client, _ = get_llm_client_and_crawler()
+        
+        if not llm_client:
+            job_tracker.fail_job("trending", "Trending analysis not configured - check configuration")
+            return None
+        
+        job_tracker.update_job_step("trending", f"Analyzing trending topics for last {days} days...")
         analyzer = TrendingAnalyzer(db, llm_client)
         results = await analyzer.analyze_trending_topics(days)
+        
+        job_tracker.complete_job("trending", {
+            "days": days,
+            "article_count": results.get("article_count", 0),
+            "ai_topics_found": len(results.get('ai_trending_topics', []))
+        })
         logger.info(f"Trending analysis completed for {days} days: {len(results.get('ai_trending_topics', []))} AI topics found")
         return results
     except Exception as e:
-        logger.error(f"Trending analysis failed: {e}")
+        error_msg = f"Trending analysis failed: {e}"
+        job_tracker.fail_job("trending", error_msg)
+        logger.error(error_msg)
         return None
 
 
@@ -426,6 +452,119 @@ async def analyze_trending(days: int = Form(7)):
     except Exception as e:
         logger.error(f"Trending analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+async def run_refresh_all_background():
+    """Background task to run all three jobs in sequence: crawl, research, trending."""
+    job_tracker.start_job("refresh_all", "Starting comprehensive data refresh...")
+    
+    try:
+        # Step 1: Run crawl
+        job_tracker.update_job_step("refresh_all", "Step 1/3: Running article crawler", 1)
+        await run_crawl_background()
+        
+        # Check if crawl succeeded
+        crawl_status = job_tracker.get_status("crawl")
+        if crawl_status["status"] != JobStatus.COMPLETED:
+            job_tracker.fail_job("refresh_all", f"Crawl step failed: {crawl_status.get('error', 'Unknown error')}")
+            return
+        
+        # Step 2: Run company research
+        job_tracker.update_job_step("refresh_all", "Step 2/3: Researching missing company info", 2)
+        await run_company_research_background()
+        
+        # Check if research succeeded
+        research_status = job_tracker.get_status("research")
+        if research_status["status"] != JobStatus.COMPLETED:
+            job_tracker.fail_job("refresh_all", f"Research step failed: {research_status.get('error', 'Unknown error')}")
+            return
+        
+        # Step 3: Run trending analysis for all time periods
+        job_tracker.update_job_step("refresh_all", "Step 3/3: Generating trending reports", 3)
+        
+        # Generate trending reports for 7, 30, and 90 days
+        for days in [7, 30, 90]:
+            await run_trending_analysis_background(days)
+            # Don't fail the whole process if one trending report fails
+            trending_status = job_tracker.get_status("trending")
+            if trending_status["status"] != JobStatus.COMPLETED:
+                logger.warning(f"Trending analysis for {days} days failed: {trending_status.get('error')}")
+        
+        # Collect final results
+        final_results = {
+            "crawl_results": job_tracker.get_status("crawl")["results"],
+            "research_results": job_tracker.get_status("research")["results"],
+            "trending_completed": True,
+            "message": "All jobs completed successfully"
+        }
+        
+        job_tracker.complete_job("refresh_all", final_results)
+        logger.info("Refresh All background job completed successfully")
+        
+    except Exception as e:
+        error_msg = f"Refresh All failed: {e}"
+        job_tracker.fail_job("refresh_all", error_msg)
+        logger.error(error_msg)
+
+
+@app.post("/refresh-all")
+async def trigger_refresh_all(background_tasks: BackgroundTasks):
+    """Trigger the comprehensive refresh of all data."""
+    # Check if any job is already running
+    if job_tracker.is_any_job_running():
+        raise HTTPException(status_code=409, detail="Another job is already running. Please wait for it to complete.")
+    
+    # Check configuration
+    llm_client, crawler = get_llm_client_and_crawler()
+    if not llm_client or not crawler:
+        raise HTTPException(status_code=400, detail="System not configured - please set up Databricks configuration first")
+    
+    # Reset all job statuses
+    for job_name in ["refresh_all", "crawl", "research", "trending"]:
+        job_tracker.reset_job(job_name)
+    
+    # Start the background task
+    background_tasks.add_task(run_refresh_all_background)
+    
+    return {"message": "Comprehensive refresh started in background"}
+
+
+@app.get("/job-status/{job_name}")
+async def get_job_status(job_name: str):
+    """Get the status of a specific job."""
+    valid_jobs = ["refresh_all", "crawl", "research", "trending"]
+    if job_name not in valid_jobs:
+        raise HTTPException(status_code=404, detail=f"Job not found. Valid jobs: {valid_jobs}")
+    
+    status = job_tracker.get_status(job_name)
+    
+    # Convert enum to string for JSON serialization
+    if "status" in status:
+        status["status"] = status["status"].value
+    
+    # Convert datetime to ISO string
+    for field in ["started_at", "completed_at"]:
+        if status.get(field):
+            status[field] = status[field].isoformat()
+    
+    return status
+
+
+@app.get("/job-status")
+async def get_all_job_status():
+    """Get the status of all jobs."""
+    all_status = job_tracker.get_all_status()
+    
+    # Convert enums and datetimes for JSON serialization
+    for job_status in all_status.values():
+        if "status" in job_status:
+            job_status["status"] = job_status["status"].value
+        
+        for field in ["started_at", "completed_at"]:
+            if job_status.get(field):
+                job_status[field] = job_status[field].isoformat()
+    
+    return all_status
 
 
 @app.get("/health")

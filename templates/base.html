@@ -16,6 +16,10 @@
                 <a href="/topics" class="nav-link">Topics</a>
                 <a href="/trending" class="nav-link">Trending</a>
                 <a href="/registry" class="nav-link">Registry</a>
+                <button id="refresh-all-btn" class="nav-link refresh-all-btn" onclick="triggerRefreshAll()">
+                    <span class="refresh-text">Refresh All</span>
+                    <span class="refresh-spinner" style="display: none;">🔄</span>
+                </button>
                 <a href="/config" class="nav-link config-link" title="Configuration">⚙️</a>
             </nav>
         </div>
@@ -23,10 +27,292 @@
     
     <main class="main">
         <div class="container">
+            <!-- Status indicator for background jobs -->
+            <div id="job-status-indicator" class="job-status-indicator" style="display: none;">
+                <div class="status-content">
+                    <span class="status-icon">🔄</span>
+                    <span class="status-text">Refreshing data...</span>
+                    <div class="status-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <span class="progress-text" id="progress-text">Step 1 of 3</span>
+                    </div>
+                </div>
+            </div>
+            
             {% block content %}{% endblock %}
         </div>
     </main>
     
     {% block scripts %}{% endblock %}
+    
+    <script>
+        let jobStatusInterval = null;
+        
+        async function triggerRefreshAll() {
+            const button = document.getElementById('refresh-all-btn');
+            const refreshText = button.querySelector('.refresh-text');
+            const spinner = button.querySelector('.refresh-spinner');
+            
+            try {
+                // Show loading state
+                refreshText.style.display = 'none';
+                spinner.style.display = 'inline';
+                button.disabled = true;
+                
+                const response = await fetch('/refresh-all', { method: 'POST' });
+                
+                if (response.ok) {
+                    showJobStatusIndicator();
+                    startJobStatusPolling();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to start refresh: ${error.detail}`);
+                    resetRefreshButton();
+                }
+            } catch (error) {
+                alert(`Error starting refresh: ${error.message}`);
+                resetRefreshButton();
+            }
+        }
+        
+        function resetRefreshButton() {
+            const button = document.getElementById('refresh-all-btn');
+            const refreshText = button.querySelector('.refresh-text');
+            const spinner = button.querySelector('.refresh-spinner');
+            
+            refreshText.style.display = 'inline';
+            spinner.style.display = 'none';
+            button.disabled = false;
+        }
+        
+        function showJobStatusIndicator() {
+            const indicator = document.getElementById('job-status-indicator');
+            indicator.style.display = 'block';
+        }
+        
+        function hideJobStatusIndicator() {
+            const indicator = document.getElementById('job-status-indicator');
+            indicator.style.display = 'none';
+        }
+        
+        function updateJobStatusDisplay(status) {
+            const statusText = document.querySelector('.status-text');
+            const progressText = document.getElementById('progress-text');
+            const progressFill = document.getElementById('progress-fill');
+            
+            if (status.current_step) {
+                statusText.textContent = status.current_step;
+            }
+            
+            if (status.current_step_number && status.total_steps) {
+                const progress = (status.current_step_number / status.total_steps) * 100;
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `Step ${status.current_step_number} of ${status.total_steps}`;
+            }
+        }
+        
+        async function checkJobStatus() {
+            try {
+                const response = await fetch('/job-status/refresh_all');
+                const status = await response.json();
+                
+                updateJobStatusDisplay(status);
+                
+                if (status.status === 'completed') {
+                    // Job completed successfully
+                    setTimeout(() => {
+                        hideJobStatusIndicator();
+                        resetRefreshButton();
+                        // Optionally reload the page or show success message
+                        showSuccessMessage('Data refresh completed successfully!');
+                    }, 2000);
+                    stopJobStatusPolling();
+                } else if (status.status === 'error') {
+                    // Job failed
+                    hideJobStatusIndicator();
+                    resetRefreshButton();
+                    alert(`Refresh failed: ${status.error}`);
+                    stopJobStatusPolling();
+                }
+            } catch (error) {
+                console.error('Error checking job status:', error);
+            }
+        }
+        
+        function startJobStatusPolling() {
+            jobStatusInterval = setInterval(checkJobStatus, 2000); // Check every 2 seconds
+        }
+        
+        function stopJobStatusPolling() {
+            if (jobStatusInterval) {
+                clearInterval(jobStatusInterval);
+                jobStatusInterval = null;
+            }
+        }
+        
+        function showSuccessMessage(message) {
+            // Create a temporary success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            successDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background-color: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            `;
+            document.body.appendChild(successDiv);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                document.body.removeChild(successDiv);
+            }, 5000);
+        }
+        
+        // Check if any jobs are running on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/job-status');
+                const allStatus = await response.json();
+                
+                // Check if refresh_all is running
+                if (allStatus.refresh_all && allStatus.refresh_all.status === 'running') {
+                    showJobStatusIndicator();
+                    startJobStatusPolling();
+                    
+                    // Show button as active
+                    const button = document.getElementById('refresh-all-btn');
+                    const refreshText = button.querySelector('.refresh-text');
+                    const spinner = button.querySelector('.refresh-spinner');
+                    
+                    refreshText.style.display = 'none';
+                    spinner.style.display = 'inline';
+                    button.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error checking initial job status:', error);
+            }
+        });
+    </script>
+
+    <style>
+        .refresh-all-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+            color: #e6e6e6;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .refresh-all-btn:hover:not(:disabled) {
+            background-color: #404040;
+        }
+        
+        .refresh-all-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .refresh-spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .job-status-indicator {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background-color: #2d2d2d;
+            border: 1px solid #ff6600;
+            border-radius: 5px;
+            padding: 15px;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            min-width: 300px;
+        }
+        
+        .status-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .status-content > div:first-child {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-icon {
+            font-size: 16px;
+            animation: spin 1s linear infinite;
+        }
+        
+        .status-text {
+            color: #e6e6e6;
+            font-size: 14px;
+            flex: 1;
+        }
+        
+        .status-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background-color: #404040;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #ff6600;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            color: #999;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .success-message {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
 </body>
 </html>
