@@ -6,7 +6,7 @@
 <div class="page-header">
     <h2>Trending Topics</h2>
     <div class="trending-actions">
-        <button class="btn btn-primary" onclick="generateTrendingReport()">Generate Trending Report</button>
+        <button id="trending-btn" class="btn btn-primary job-button" onclick="generateTrendingReport()">Generate Trending Report</button>
     </div>
 </div>
 
@@ -56,13 +56,12 @@ function updateTimePeriod() {
 
 async function generateTrendingReport() {
     const selectedDays = document.querySelector('input[name="days"]:checked').value;
-    const button = document.querySelector('.btn-primary');
+    const buttonId = 'trending-btn';
+    const jobName = 'trending';
     const placeholder = document.getElementById('trending-placeholder');
     const results = document.getElementById('trending-results');
     
-    // Show loading state
-    button.textContent = 'Analyzing...';
-    button.disabled = true;
+    startJobButton(buttonId, jobName, 'Starting Analysis...');
     placeholder.innerHTML = '<p>Analyzing trending topics... This may take a minute.</p>';
     
     try {
@@ -80,15 +79,16 @@ async function generateTrendingReport() {
             displayTrendingResults(result.data);
             placeholder.style.display = 'none';
             results.style.display = 'block';
+            showSuccessMessage('Trending analysis completed successfully!');
+            // Button will be reset by polling when job completes
         } else {
             const error = await response.json();
             placeholder.innerHTML = `<p style="color: #dc3545;">Analysis failed: ${error.detail || 'Unknown error'}</p>`;
+            resetJobButton(buttonId, jobName);
         }
     } catch (error) {
         placeholder.innerHTML = `<p style="color: #dc3545;">Analysis failed: ${error.message}</p>`;
-    } finally {
-        button.textContent = 'Generate Trending Report';
-        button.disabled = false;
+        resetJobButton(buttonId, jobName);
     }
 }
 

@@ -10,10 +10,28 @@
 
 <div id="add-form" class="form-card" style="display: none;">
     <h3>Add New URL</h3>
-    <form method="post" action="/registry/add">
+    <form method="post" action="/registry/add" id="add-url-form">
         <div class="form-group">
             <label for="url">URL:</label>
             <input type="url" id="url" name="url" required>
+            <button type="button" class="btn btn-small btn-secondary" onclick="detectRSSFeeds()">🔍 Detect RSS</button>
+        </div>
+        
+        <div class="form-group">
+            <label for="feed_type">Type:</label>
+            <select id="feed_type" name="feed_type" onchange="toggleRSSOptions()">
+                <option value="webpage">Webpage</option>
+                <option value="rss">RSS Feed</option>
+            </select>
+        </div>
+        
+        <div id="rss-options" style="display: none;">
+            <div class="form-group">
+                <label for="check_frequency_hours">Check Frequency (hours):</label>
+                <input type="number" id="check_frequency_hours" name="check_frequency_hours" value="24" min="1" max="168">
+            </div>
+            <button type="button" class="btn btn-small btn-secondary" onclick="validateRSSFeed()">✓ Validate RSS</button>
+            <div id="rss-validation-result"></div>
         </div>
         
         <div class="form-group checkbox-group">
@@ -44,9 +62,22 @@
     </form>
 </div>
 
+<div id="rss-detection-modal" style="display: none;" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Detected RSS Feeds</h3>
+            <button class="close" onclick="closeRSSModal()">&times;</button>
+        </div>
+        <div id="rss-feeds-list"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeRSSModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <div class="crawl-actions">
     <form method="post" action="/crawl/run" style="display: inline;" class="crawl-form">
-        <button type="submit" class="btn btn-success">Run Crawl</button>
+        <button type="submit" id="crawl-btn" class="btn btn-success job-button">Run Crawl</button>
     </form>
 </div>
 
@@ -56,7 +87,15 @@
     <div class="registry-item">
         <div class="registry-header">
             <div class="registry-url">
+                {% if entry.feed_type == 'rss' %}
+                    <span class="feed-type-badge rss">📡 RSS</span>
+                {% else %}
+                    <span class="feed-type-badge webpage">🌐 Web</span>
+                {% endif %}
                 <a href="{{ entry.url }}" target="_blank">{{ entry.url }}</a>
+                {% if entry.feed_title %}
+                    <div class="feed-title">{{ entry.feed_title }}</div>
+                {% endif %}
             </div>
             <div class="registry-status">
                 {% if entry.active %}
@@ -75,11 +114,23 @@
                 {% if entry.extract_companies %}
                     <span class="flag">Companies</span>
                 {% endif %}
+                {% if entry.feed_type == 'rss' %}
+                    <span class="flag">{{ entry.check_frequency_hours }}h check</span>
+                {% endif %}
             </div>
             <div class="registry-date">
                 Added: {{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else 'Unknown' }}
+                {% if entry.last_checked %}
+                    <br>Last checked: {{ entry.last_checked.strftime('%Y-%m-%d %H:%M') }}
+                {% endif %}
             </div>
         </div>
+        
+        {% if entry.feed_description %}
+        <div class="feed-description">
+            {{ entry.feed_description }}
+        </div>
+        {% endif %}
         
         <div class="registry-actions">
             <button class="btn btn-small btn-secondary" onclick="toggleEditForm({{ entry.id }})">Edit</button>
@@ -90,6 +141,16 @@
         
         <div id="edit-form-{{ entry.id }}" class="edit-form" style="display: none;">
             <form method="post" action="/registry/update/{{ entry.id }}">
+                {% if entry.feed_type == 'rss' %}
+                <div class="form-group">
+                    <label for="check_frequency_hours_{{ entry.id }}">Check Frequency (hours):</label>
+                    <input type="number" id="check_frequency_hours_{{ entry.id }}" name="check_frequency_hours" 
+                           value="{{ entry.check_frequency_hours or 24 }}" min="1" max="168">
+                </div>
+                {% else %}
+                <input type="hidden" name="check_frequency_hours" value="24">
+                {% endif %}
+                
                 <div class="form-group checkbox-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="extract_topics" {% if entry.extract_topics %}checked{% endif %}>
@@ -139,15 +200,133 @@ function toggleEditForm(id) {
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleRSSOptions() {
+    const feedType = document.getElementById('feed_type').value;
+    const rssOptions = document.getElementById('rss-options');
+    rssOptions.style.display = feedType === 'rss' ? 'block' : 'none';
+}
+
+async function detectRSSFeeds() {
+    const urlInput = document.getElementById('url');
+    const url = urlInput.value.trim();
+    
+    if (!url) {
+        alert('Please enter a URL first');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('url', url);
+        
+        const response = await fetch('/api/detect-rss', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.feeds && result.feeds.length > 0) {
+            showRSSModal(result.feeds);
+        } else {
+            alert('No RSS feeds found on this webpage');
+        }
+    } catch (error) {
+        alert(`RSS detection failed: ${error.message}`);
+    }
+}
+
+async function validateRSSFeed() {
+    const urlInput = document.getElementById('url');
+    const url = urlInput.value.trim();
+    const resultDiv = document.getElementById('rss-validation-result');
+    
+    if (!url) {
+        alert('Please enter a URL first');
+        return;
+    }
+    
+    resultDiv.innerHTML = 'Validating...';
+    
+    try {
+        const formData = new FormData();
+        formData.append('url', url);
+        
+        const response = await fetch('/api/validate-rss', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.valid) {
+            resultDiv.innerHTML = `
+                <div class="validation-success">
+                    ✅ Valid RSS feed<br>
+                    <strong>${result.title}</strong><br>
+                    <small>${result.description}</small>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="validation-error">
+                    ❌ ${result.error}
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div class="validation-error">
+                ❌ Validation failed: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function showRSSModal(feeds) {
+    const modal = document.getElementById('rss-detection-modal');
+    const feedsList = document.getElementById('rss-feeds-list');
+    
+    feedsList.innerHTML = '';
+    
+    feeds.forEach(feed => {
+        const feedDiv = document.createElement('div');
+        feedDiv.className = 'rss-feed-item';
+        feedDiv.innerHTML = `
+            <div class="feed-info">
+                <strong>${feed.title || 'Untitled Feed'}</strong><br>
+                <small>${feed.url}</small><br>
+                ${feed.description ? `<em>${feed.description}</em>` : ''}
+            </div>
+            <button class="btn btn-small btn-primary" onclick="selectRSSFeed('${feed.url}', '${feed.title}', '${feed.description}')">
+                Use This Feed
+            </button>
+        `;
+        feedsList.appendChild(feedDiv);
+    });
+    
+    modal.style.display = 'block';
+}
+
+function selectRSSFeed(url, title, description) {
+    document.getElementById('url').value = url;
+    document.getElementById('feed_type').value = 'rss';
+    toggleRSSOptions();
+    closeRSSModal();
+}
+
+function closeRSSModal() {
+    document.getElementById('rss-detection-modal').style.display = 'none';
+}
+
 // Handle crawl form submission
 document.querySelector('.crawl-form').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const button = this.querySelector('button');
-    const originalText = button.textContent;
+    const buttonId = 'crawl-btn';
+    const jobName = 'crawl';
     
-    button.textContent = 'Starting Crawl...';
-    button.disabled = true;
+    startJobButton(buttonId, jobName, 'Starting Crawl...');
     
     try {
         const response = await fetch('/crawl/run', {
@@ -159,16 +338,16 @@ document.querySelector('.crawl-form').addEventListener('submit', async function(
         
         if (response.ok) {
             const result = await response.json();
-            alert('Crawl started! The crawler is now processing all active URLs in the background. Check the Articles page in a few minutes to see new content.');
+            showSuccessMessage('Crawl started! The crawler is now processing all active URLs in the background. Check the Articles page in a few minutes to see new content.');
+            // Keep button disabled and status showing - will be reset by polling
         } else {
             const error = await response.json();
             alert(`Crawl failed: ${error.detail || 'Unknown error'}`);
+            resetJobButton(buttonId, jobName);
         }
     } catch (error) {
         alert(`Crawl failed: ${error.message}`);
-    } finally {
-        button.textContent = originalText;
-        button.disabled = false;
+        resetJobButton(buttonId, jobName);
     }
 });
 </script>
