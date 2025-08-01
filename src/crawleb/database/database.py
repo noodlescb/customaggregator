@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from contextlib import contextmanager
 import logging
 
-from .models import CrawlRegistry, Article, Company, Topic, ArticleTopic, ArticleCompany, Config
+from .models import CrawlRegistry, Article, Company, Topic, ArticleTopic, ArticleCompany, Config, Theme, ArticleTheme
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,31 @@ class Database:
                 CREATE TABLE IF NOT EXISTS config (
                     key VARCHAR PRIMARY KEY,
                     value VARCHAR NOT NULL
+                )
+            """)
+            
+            # Create themes table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS themes (
+                    theme_id INTEGER PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    explanation TEXT,
+                    insights TEXT,
+                    report_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (report_id) REFERENCES trending_reports(report_id)
+                )
+            """)
+            
+            # Create article_themes join table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS article_themes (
+                    article_id INTEGER,
+                    theme_id INTEGER,
+                    relevance_score DOUBLE,
+                    PRIMARY KEY (article_id, theme_id),
+                    FOREIGN KEY (article_id) REFERENCES articles(article_id),
+                    FOREIGN KEY (theme_id) REFERENCES themes(theme_id)
                 )
             """)
             
@@ -436,6 +461,115 @@ class Database:
             except Exception as e:
                 logger.error(f"Error getting article topics for article_id {article_id}: {e}")
                 return []
+    
+    # Theme methods
+    def add_theme(self, theme: Theme) -> int:
+        """Add a new theme to the database."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                # Get the max ID first to generate the next one
+                result = conn.execute("SELECT COALESCE(MAX(theme_id), 0) + 1 FROM themes").fetchone()
+                theme_id = result[0]
+                
+                # Insert the theme with the specific ID
+                conn.execute("""
+                    INSERT INTO themes (theme_id, name, explanation, insights, report_id)
+                    VALUES (?, ?, ?, ?, ?)
+                """, [theme_id, theme.name, theme.explanation, theme.insights, theme.report_id])
+                
+                logger.info(f"Added theme '{theme.name}' with ID {theme_id}")
+                return theme_id
+            except Exception as e:
+                logger.error(f"Error adding theme: {e}")
+                raise
+    
+    def get_theme_by_name_and_report(self, name: str, report_id: int) -> Optional[Dict[str, Any]]:
+        """Get theme by name and report ID."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                result = conn.execute("""
+                    SELECT theme_id, name, explanation, insights, report_id, created_at
+                    FROM themes 
+                    WHERE name = ? AND report_id = ?
+                """, [name, report_id]).fetchone()
+                
+                if result:
+                    return {
+                        'theme_id': result[0], 'name': result[1], 'explanation': result[2],
+                        'insights': result[3], 'report_id': result[4], 'created_at': result[5]
+                    }
+                return None
+            except Exception as e:
+                logger.error(f"Error getting theme by name and report: {e}")
+                return None
+    
+    def link_article_theme(self, article_id: int, theme_id: int, relevance_score: float = 1.0):
+        """Link an article to a theme."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                conn.execute("""
+                    INSERT INTO article_themes (article_id, theme_id, relevance_score)
+                    VALUES (?, ?, ?)
+                """, [article_id, theme_id, relevance_score])
+            except Exception:
+                # Link already exists, ignore
+                pass
+    
+    def clear_theme_articles(self, theme_id: int):
+        """Clear all article associations for a theme (for refresh)."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                conn.execute("DELETE FROM article_themes WHERE theme_id = ?", [theme_id])
+            except Exception as e:
+                logger.error(f"Error clearing theme articles: {e}")
+    
+    def get_articles_by_theme(self, theme_id: int, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get all articles associated with a specific theme."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                results = conn.execute("SELECT articles.article_id, articles.url, articles.title, articles.author, articles.description, articles.publication_date, articles.crawl_date, articles.summary, article_themes.relevance_score FROM articles JOIN article_themes ON articles.article_id = article_themes.article_id WHERE article_themes.theme_id = ? ORDER BY article_themes.relevance_score DESC, articles.publication_date DESC LIMIT ? OFFSET ?", [theme_id, limit, offset]).fetchall()
+                
+                articles = []
+                for row in results:
+                    article = {
+                        'article_id': row[0], 'url': row[1], 'title': row[2], 'author': row[3],
+                        'description': row[4], 'publication_date': row[5], 'crawl_date': row[6], 
+                        'summary': row[7], 'relevance_score': row[8]
+                    }
+                    # Get associated topics and companies
+                    try:
+                        article['topics'] = self.get_article_topics(row[0])
+                        article['companies'] = self.get_article_companies(row[0])
+                    except Exception as e:
+                        logger.error(f"Error getting topics/companies for article {row[0]}: {e}")
+                        article['topics'] = []
+                        article['companies'] = []
+                    articles.append(article)
+                
+                return articles
+            except Exception as e:
+                logger.error(f"Error getting articles by theme: {e}")
+                return []
+    
+    def get_theme_by_id(self, theme_id: int) -> Optional[Dict[str, Any]]:
+        """Get theme details by theme ID."""
+        with duckdb.connect(str(self.db_path)) as conn:
+            try:
+                result = conn.execute("""
+                    SELECT theme_id, name, explanation, insights, report_id, created_at
+                    FROM themes 
+                    WHERE theme_id = ?
+                """, [theme_id]).fetchone()
+                
+                if result:
+                    return {
+                        'theme_id': result[0], 'name': result[1], 'explanation': result[2],
+                        'insights': result[3], 'report_id': result[4], 'created_at': result[5]
+                    }
+                return None
+            except Exception as e:
+                logger.error(f"Error getting theme by ID: {e}")
+                return None
     
     def get_article_companies(self, article_id: int) -> List[Dict[str, Any]]:
         with duckdb.connect(str(self.db_path)) as conn:

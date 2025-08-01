@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Trending - CrawlEB{% endblock %}
+{% block title %}Trending - News-dles{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -118,7 +118,7 @@ function displayTrendingResults(data) {
             html += `
                 <div class="trending-card">
                     <div class="trending-card-header">
-                        <h4><a href="/?topic_id=${topic.topic_id}" class="topic-tag">${topic.name}</a></h4>
+                        <h4><a href="/?topic_id=${topic.topic_id}">${topic.name}</a></h4>
                         <span class="trending-count">${topic.article_count} articles</span>
                     </div>
                 </div>
@@ -145,7 +145,7 @@ function displayTrendingResults(data) {
             html += `
                 <div class="trending-card">
                     <div class="trending-card-header">
-                        <h4><a href="/companies/${company.company_id}" class="company-tag">${company.name}</a></h4>
+                        <h4><a href="/companies/${company.company_id}">${company.name}</a></h4>
                         <span class="trending-count">${company.article_count} articles</span>
                     </div>
                     ${company.website_url ? `<div class="company-website"><a href="${company.website_url}" target="_blank">${company.website_url}</a></div>` : ''}
@@ -159,50 +159,50 @@ function displayTrendingResults(data) {
         `;
     }
     
-    // AI-Identified Trending Topics
+    // AI-Identified Trending Themes
     if (data.ai_trending_topics && data.ai_trending_topics.length > 0) {
         html += `
             <div class="trending-section">
                 <div class="section-header">
-                    <h3>AI-Identified Trending Topics</h3>
-                    <p class="section-subtitle">Topics identified through content analysis</p>
+                    <h3>Trending Themes</h3>
+                    <p class="section-subtitle">Key themes and messages shared across articles</p>
                 </div>
                 <div class="ai-trending-list">
         `;
         
-        data.ai_trending_topics.forEach((topic, index) => {
+        data.ai_trending_topics.forEach((theme, index) => {
             html += `
-                <div class="ai-trending-item">
+                <div class="ai-trending-item" data-theme-name="${theme.name}">
                     <div class="ai-trending-header">
-                        <h4>${topic.name}</h4>
+                        <h4>${theme.name}</h4>
                         <div class="ai-trending-meta">
-                            <span class="related-count">${topic.related_article_count} related articles</span>
+                            <span class="related-count">${theme.related_article_count} related articles</span>
                         </div>
                     </div>
                     
                     <div class="ai-trending-content">
                         <div class="explanation">
-                            <strong>Why it's trending:</strong>
-                            <p>${topic.explanation}</p>
+                            <strong>What this theme represents:</strong>
+                            <p>${theme.explanation}</p>
                         </div>
                         
                         <div class="insights">
-                            <strong>Key insights:</strong>
-                            <p>${topic.insights}</p>
+                            <strong>Key messages and arguments:</strong>
+                            <p>${theme.insights}</p>
                         </div>
                         
-                        ${topic.related_articles && topic.related_articles.length > 0 ? `
+                        ${theme.related_articles && theme.related_articles.length > 0 ? `
                             <div class="related-articles">
-                                <strong>Related articles:</strong>
+                                <strong>Articles expressing this theme:</strong>
                                 <ul>
-                                    ${topic.related_articles.map(article => `
+                                    ${theme.related_articles.map(article => `
                                         <li>
                                             <a href="${article.url}" target="_blank">${article.title}</a>
                                             ${article.publication_date ? `<span class="article-date">${new Date(article.publication_date).toLocaleDateString()}</span>` : ''}
                                         </li>
                                     `).join('')}
                                 </ul>
-                                <button class="btn btn-small btn-secondary" onclick="viewAllRelatedArticles('${topic.name}')">View All Articles</button>
+                                <button class="btn btn-small btn-secondary" onclick="viewAllRelatedArticles('${theme.name}', ${index})">View All Articles</button>
                             </div>
                         ` : ''}
                     </div>
@@ -221,7 +221,7 @@ function displayTrendingResults(data) {
     if (data.top_topics.length === 0 && data.top_companies.length === 0 && data.ai_trending_topics.length === 0) {
         html = `
             <div class="empty-state">
-                <p>No trending topics found for the last ${data.days} days. Try adjusting the time period or add more articles to analyze.</p>
+                <p>No trending themes found for the last ${data.days} days. Try adjusting the time period or add more articles to analyze.</p>
             </div>
         `;
     }
@@ -229,10 +229,22 @@ function displayTrendingResults(data) {
     resultsContainer.innerHTML = html;
 }
 
-function viewAllRelatedArticles(topicName) {
-    // This could be enhanced to search for articles related to the AI-identified topic
-    // For now, we'll just show a message
-    alert(`Feature coming soon: View all articles related to "${topicName}"`);
+async function viewAllRelatedArticles(themeName, themeIndex) {
+    try {
+        // Get theme ID by name
+        const response = await fetch(`/api/theme/find?theme_name=${encodeURIComponent(themeName)}`);
+        
+        if (response.ok) {
+            const themeData = await response.json();
+            // Navigate to theme articles page
+            window.location.href = `/theme/${themeData.theme_id}/articles`;
+        } else {
+            alert(`Theme "${themeName}" not found in database. This might be a new theme that hasn't been saved yet.`);
+        }
+    } catch (error) {
+        console.error('Error finding theme:', error);
+        alert(`Error loading articles for theme "${themeName}". Please try again.`);
+    }
 }
 
 // Auto-load results if we have trending data
@@ -368,6 +380,15 @@ document.addEventListener('DOMContentLoaded', function() {
     margin: 0;
     font-size: 14px;
     font-weight: normal;
+}
+
+.trending-card h4 a {
+    color: #ff6600;
+    text-decoration: none;
+}
+
+.trending-card h4 a:hover {
+    text-decoration: underline;
 }
 
 .trending-count {

@@ -27,6 +27,13 @@ def reset_tables():
             print("  - Clearing article_companies...")
             conn.execute("DELETE FROM article_companies")
             
+            print("  - Clearing article_themes...")
+            try:
+                conn.execute("DELETE FROM article_themes")
+            except:
+                # Table might not exist yet
+                pass
+            
             # Delete data from main tables
             print("  - Clearing articles...")
             conn.execute("DELETE FROM articles")
@@ -36,6 +43,20 @@ def reset_tables():
             
             print("  - Clearing topics...")
             conn.execute("DELETE FROM topics")
+            
+            print("  - Clearing themes...")
+            try:
+                conn.execute("DELETE FROM themes")
+            except:
+                # Table might not exist yet
+                pass
+            
+            print("  - Clearing trending_reports...")
+            try:
+                conn.execute("DELETE FROM trending_reports")
+            except:
+                # Table might not exist yet
+                pass
             
             # Reset sequences to start from 1 again
             print("  - Resetting sequences...")

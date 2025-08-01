@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CLI tool for running CrawlEB crawler independently.
+CLI tool for running News-dles crawler independently.
 Can be used for cron jobs or manual crawling.
 """
 

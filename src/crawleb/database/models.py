@@ -60,6 +60,21 @@ class Config(BaseModel):
     max_articles_per_page: int = 10
 
 
+class Theme(BaseModel):
+    theme_id: Optional[int] = None
+    name: str
+    explanation: Optional[str] = None
+    insights: Optional[str] = None
+    report_id: Optional[int] = None  # Links to the trending report that identified this theme
+    created_at: Optional[datetime] = None
+
+
+class ArticleTheme(BaseModel):
+    article_id: int
+    theme_id: int
+    relevance_score: Optional[float] = None
+
+
 class TrendingReport(BaseModel):
     report_id: Optional[int] = None
     days: int = 7

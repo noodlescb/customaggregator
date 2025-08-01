@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="CrawlEB - Web Article Crawler", version="1.0.0")
+app = FastAPI(title="News-dles - Web Article Crawler", version="1.0.0")
 
 # Setup static files and templates
 static_path = Path(__file__).parent.parent.parent.parent / "static"
@@ -452,6 +452,78 @@ async def analyze_trending(days: int = Form(7)):
     except Exception as e:
         logger.error(f"Trending analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@app.get("/theme/{theme_id}/articles", response_class=HTMLResponse)
+async def theme_articles_page(request: Request, theme_id: int, page: int = 1):
+    """Page showing all articles for a specific theme."""
+    try:
+        # Get theme details
+        theme = db.get_theme_by_id(theme_id)
+        if not theme:
+            raise HTTPException(status_code=404, detail="Theme not found")
+        
+        # Get articles for this theme with pagination
+        per_page = 20
+        offset = (page - 1) * per_page
+        articles = db.get_articles_by_theme(theme_id, limit=per_page, offset=offset)
+        
+        # Calculate pagination info
+        has_more = len(articles) == per_page
+        
+        return templates.TemplateResponse("theme_articles.html", {
+            "request": request,
+            "theme": theme,
+            "articles": articles,
+            "page": page,
+            "has_more": has_more,
+            "prev_page": page - 1 if page > 1 else None,
+            "next_page": page + 1 if has_more else None
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error loading theme articles: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load theme articles")
+
+
+@app.get("/api/theme/find")
+async def find_theme_by_name(theme_name: str, report_id: int = None):
+    """Find theme ID by name and optional report ID."""
+    try:
+        if report_id:
+            theme = db.get_theme_by_name_and_report(theme_name, report_id)
+        else:
+            # If no report_id provided, get the most recent theme with this name
+            import duckdb
+            with duckdb.connect(str(db.db_path)) as conn:
+                result = conn.execute("""
+                    SELECT theme_id, name, explanation, insights, report_id, created_at
+                    FROM themes 
+                    WHERE name = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """, [theme_name]).fetchone()
+                
+                if result:
+                    theme = {
+                        'theme_id': result[0], 'name': result[1], 'explanation': result[2],
+                        'insights': result[3], 'report_id': result[4], 'created_at': result[5]
+                    }
+                else:
+                    theme = None
+        
+        if not theme:
+            raise HTTPException(status_code=404, detail="Theme not found")
+        
+        return {"theme_id": theme['theme_id'], "name": theme['name']}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error finding theme: {e}")
+        raise HTTPException(status_code=500, detail="Failed to find theme")
 
 
 async def run_refresh_all_background():

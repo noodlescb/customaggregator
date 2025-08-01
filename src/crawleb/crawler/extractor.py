@@ -7,6 +7,8 @@ import trafilatura
 from newspaper import Article as NewspaperArticle
 from bs4 import BeautifulSoup
 import re
+import time
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +17,117 @@ class ContentExtractor:
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
+        self.last_request_time = 0
+        self.min_delay = 1.0  # Minimum delay between requests in seconds
+        self.max_delay = 3.0  # Maximum delay between requests in seconds
+        
+        # Rotate between different realistic user agents
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
+        ]
+        
+        # Set up session with better headers
+        self._setup_session()
+    
+    def _setup_session(self):
+        """Set up the requests session with realistic browser headers."""
+        headers = {
+            'User-Agent': random.choice(self.user_agents),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
+        }
+        self.session.headers.update(headers)
+    
+    def _make_request(self, url: str) -> requests.Response:
+        """Make a rate-limited HTTP request with anti-detection measures."""
+        # Implement rate limiting
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.min_delay:
+            delay = random.uniform(self.min_delay, self.max_delay)
+            logger.debug(f"Rate limiting: waiting {delay:.2f}s before request to {url}")
+            time.sleep(delay)
+        
+        # Rotate user agent occasionally
+        if random.random() < 0.3:  # 30% chance to rotate
+            self.session.headers['User-Agent'] = random.choice(self.user_agents)
+        
+        # Add some randomization to headers
+        if random.random() < 0.5:
+            self.session.headers['Accept-Language'] = random.choice([
+                'en-US,en;q=0.9', 
+                'en-US,en;q=0.8,es;q=0.7', 
+                'en-GB,en;q=0.9,en-US;q=0.8'
+            ])
+        
+        try:
+            response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+            self.last_request_time = time.time()
+            
+            # Log the response for debugging
+            logger.debug(f"Request to {url}: {response.status_code}")
+            
+            # Handle specific error cases
+            if response.status_code == 403:
+                logger.warning(f"403 Forbidden for {url} - site may be blocking automated requests")
+                # Try multiple strategies to get around the block
+                retry_attempts = 3
+                for attempt in range(retry_attempts):
+                    logger.info(f"Retry attempt {attempt + 1} for {url}")
+                    
+                    # Progressive delay
+                    delay = random.uniform(3.0, 8.0) * (attempt + 1)
+                    time.sleep(delay)
+                    
+                    # Create a completely fresh session
+                    old_session = self.session
+                    self.session = requests.Session()
+                    self._setup_session()
+                    
+                    # Add additional headers that might help
+                    extra_headers = {
+                        'Referer': 'https://www.google.com/',
+                        'Sec-Ch-Ua': '"Chromium";v="120", "Not_A Brand";v="24", "Google Chrome";v="120"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"macOS"'
+                    }
+                    self.session.headers.update(extra_headers)
+                    
+                    try:
+                        response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+                        self.last_request_time = time.time()
+                        
+                        if response.status_code != 403:
+                            logger.info(f"Retry successful for {url} on attempt {attempt + 1}")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Retry attempt {attempt + 1} failed: {e}")
+                        if attempt == retry_attempts - 1:
+                            # Restore old session and raise the original error
+                            self.session = old_session
+                            response.raise_for_status()
+            
+            response.raise_for_status()
+            return response
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            raise
     
     def extract_articles_from_page(self, url: str) -> List[str]:
         """
@@ -25,8 +135,7 @@ class ContentExtractor:
         Returns a list of article URLs found on the page.
         """
         try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_request(url)
             
             soup = BeautifulSoup(response.content, 'html.parser')
             article_urls = set()
@@ -42,6 +151,17 @@ class ContentExtractor:
                 '.news-link',
                 '.post-link',
                 'h1 a', 'h2 a', 'h3 a',  # Headlines
+                # GeekWire specific patterns
+                'a[href*="/startups/"]',
+                'a[href*="/biotech/"]',
+                'a[href*="/enterprise/"]',
+                'a[href*="/transportation/"]',
+                'a[href*="/cloud/"]',
+                'a[href*="/ai/"]',
+                '.post-title a',
+                '.entry-title a',
+                '.headline a',
+                '.story-headline a'
             ]
             
             base_domain = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
@@ -94,7 +214,11 @@ class ContentExtractor:
         # Look for positive article indicators
         article_patterns = [
             '/article/', '/news/', '/blog/', '/post/', '/story/',
-            '/content/', '/read/', '/view/'
+            '/content/', '/read/', '/view/',
+            # GeekWire specific patterns
+            '/startups/', '/biotech/', '/enterprise/', '/transportation/',
+            '/cloud/', '/ai/', '/fintech/', '/gaming/', '/mobile/',
+            '/venture-capital/', '/hiring/', '/legal/', '/real-estate/'
         ]
         
         for pattern in article_patterns:
@@ -128,8 +252,7 @@ class ContentExtractor:
         
         try:
             # Try with trafilatura first (usually better for content extraction)
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._make_request(url)
             
             html_content = response.text
             
@@ -143,7 +266,8 @@ class ContentExtractor:
             # Try newspaper3k for better metadata extraction
             try:
                 newspaper_article = NewspaperArticle(url)
-                newspaper_article.download()
+                # Set the HTML content we already have instead of downloading again
+                newspaper_article.set_html(html_content)
                 newspaper_article.parse()
                 
                 if newspaper_article.title:
@@ -237,25 +361,76 @@ class ContentExtractor:
             import traceback
             logger.error(f"Error extracting content from {url}: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
-            # Return minimal data even if extraction fails
-            article_data['title'] = article_data.get('title') or "Failed to extract title"
-            article_data['content'] = f"Content extraction failed for {url}: {str(e)}"
-            return article_data
+            
+            # Try a fallback approach using newspaper3k's native download method
+            try:
+                logger.info(f"Trying fallback extraction method for {url}")
+                time.sleep(random.uniform(2.0, 5.0))  # Wait before fallback
+                
+                newspaper_article = NewspaperArticle(url)
+                newspaper_article.download()
+                newspaper_article.parse()
+                
+                if newspaper_article.title or newspaper_article.text:
+                    article_data['title'] = newspaper_article.title or "No title extracted"
+                    article_data['content'] = newspaper_article.text or "No content extracted"
+                    article_data['author'] = ', '.join(newspaper_article.authors[:3]) if newspaper_article.authors else None
+                    article_data['description'] = newspaper_article.meta_description
+                    article_data['publication_date'] = newspaper_article.publish_date
+                    
+                    logger.info(f"Fallback extraction successful for {url}")
+                    return article_data
+                else:
+                    logger.warning(f"Fallback extraction returned no content for {url}")
+            except Exception as fallback_error:
+                logger.error(f"Fallback extraction also failed for {url}: {fallback_error}")
+            
+            # If all extraction methods fail, raise an exception instead of returning bad data
+            logger.error(f"All extraction methods failed for {url}")
+            raise Exception(f"Content extraction failed for {url}: {str(e)}")
     
     def is_valid_article(self, article_data: Dict[str, Any]) -> bool:
         """
         Validate if the extracted article data is sufficient for processing.
         """
-        # Must have URL and either title or content
+        # Must have URL
         if not article_data.get('url'):
             return False
         
-        if not article_data.get('title') and not article_data.get('content'):
+        # Check for failed extraction indicators
+        title = article_data.get('title', '')
+        content = article_data.get('content', '')
+        
+        # Reject articles with error indicators in title or content
+        error_indicators = [
+            'failed to extract',
+            'content extraction failed',
+            'no title extracted',
+            'no content extracted',
+            'extraction failed',
+            'error:'
+        ]
+        
+        title_lower = title.lower()
+        content_lower = content.lower()
+        
+        for indicator in error_indicators:
+            if indicator in title_lower or indicator in content_lower:
+                logger.info(f"Rejecting article {article_data.get('url')} due to extraction failure indicator")
+                return False
+        
+        # Must have meaningful title and content
+        if not title or not content:
             return False
         
         # Content should be substantial (at least 100 characters)
-        content = article_data.get('content', '')
         if len(content.strip()) < 100:
+            logger.info(f"Rejecting article {article_data.get('url')} due to insufficient content length: {len(content.strip())} chars")
+            return False
+        
+        # Title should be meaningful (not just whitespace or very short)
+        if len(title.strip()) < 10:
+            logger.info(f"Rejecting article {article_data.get('url')} due to insufficient title length: '{title}'")
             return False
         
         return True

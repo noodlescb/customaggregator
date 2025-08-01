@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Server entry point for CrawlEB web application.
+Server entry point for News-dles web application.
 """
 
 import sys

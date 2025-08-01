@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CrawlEB - Article Crawler{% endblock %}</title>
+    <title>{% block title %}News-dles - Article Crawler{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
 </head>
 <body>
     <header class="header">
         <div class="container">
-            <h1 class="logo"><a href="/">CrawlEB</a></h1>
+            <h1 class="logo"><a href="/">News-dles</a></h1>
             <nav class="nav">
                 <a href="/" class="nav-link">Articles</a>
                 <a href="/companies" class="nav-link">Companies</a>
@@ -204,14 +204,14 @@
 
     <style>
         .refresh-all-btn {
-            background: none;
+            background-color: #ff6600;
             border: none;
             cursor: pointer;
             font-size: 14px;
             padding: 5px 10px;
             border-radius: 3px;
             transition: background-color 0.2s;
-            color: #e6e6e6;
+            color: white;
             text-decoration: none;
             display: flex;
             align-items: center;
@@ -219,7 +219,7 @@
         }
         
         .refresh-all-btn:hover:not(:disabled) {
-            background-color: #404040;
+            background-color: #e55a00;
         }
         
         .refresh-all-btn:disabled {
