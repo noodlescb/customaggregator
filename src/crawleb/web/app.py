@@ -25,8 +25,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="News-dles - Web Article Crawler", version="1.0.0")
 
 # Setup static files and templates
-static_path = Path(__file__).parent.parent.parent.parent / "static"
-templates_path = Path(__file__).parent.parent.parent.parent / "templates"
+# Get the actual project root directory (where the static and templates folders are)
+project_root = Path(__file__).parent.parent.parent.parent.parent
+static_path = project_root / "static"
+templates_path = project_root / "templates"
 
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 templates = Jinja2Templates(directory=str(templates_path))
@@ -68,6 +70,12 @@ def get_llm_client_and_crawler():
             crawler = WebCrawler(db, llm_client)
     
     return llm_client, crawler
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Redirect to the custom favicon."""
+    return RedirectResponse(url="/static/newsdles-favicon.png")
 
 
 @app.get("/", response_class=HTMLResponse)

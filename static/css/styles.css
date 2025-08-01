@@ -42,6 +42,14 @@ body {
     text-decoration: none;
     font-size: 18px;
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-img {
+    height: 24px;
+    width: auto;
 }
 
 .nav {
@@ -254,23 +262,7 @@ body {
     font-size: 12px;
     color: #999;
     display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.article-dates {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.publication-date {
-    color: #4CAF50;
-    font-weight: 500;
-}
-
-.crawl-date {
-    color: #999;
+    gap: 15px;
 }
 
 .article-description {
@@ -422,55 +414,6 @@ body {
 }
 
 /* Companies */
-.companies-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 15px;
-}
-
-.search-section {
-    flex: 1;
-    max-width: 500px;
-}
-
-.search-form {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.search-input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #555;
-    border-radius: 3px;
-    background-color: #1a1a1a;
-    color: #e6e6e6;
-    font-size: 14px;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #ff6600;
-}
-
-.research-section {
-    flex-shrink: 0;
-}
-
-.research-form {
-    margin: 0;
-}
-
-.search-results {
-    margin-bottom: 15px;
-    color: #999;
-    font-size: 13px;
-}
-
 .companies-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -741,11 +684,6 @@ body {
     
     .company-actions {
         flex-direction: column;
-    }
-    
-    .article-dates {
-        flex-direction: column;
-        gap: 3px;
     }
 }
 
